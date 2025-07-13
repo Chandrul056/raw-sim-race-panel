@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RAW Spa Sim-Race Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+
+<body>
+
+  <header>
+    <div class="container">
+      <h1 class="site-title">🏁 RAW Spa Sim-Race Panel</h1>
+      <nav role="navigation" aria-label="Main">
+        <button data-tab="register"><i class="fa fa-user-plus"></i> Register</button>
+        <button data-tab="drivers"><i class="fa fa-users"></i> Drivers</button>
+        <button data-tab="q1"><i class="fa fa-clock"></i> Q1</button>
+        <button data-tab="q2"><i class="fa fa-clock"></i> Q2</button>
+        <button data-tab="q3"><i class="fa fa-clock"></i> Q3</button>
+        <button data-tab="bracket"><i class="fa fa-sitemap"></i> Bracket</button>
+        <button id="resetBtn" class="btn" style="display: none;">
+          <i class="fa fa-undo"></i> Reset All
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- 1. Register Driver -->
+    <section id="register" class="tab glass-card" aria-labelledby="registerHeading">
+      <h2 id="registerHeading"><i class="fa fa-user-plus"></i> Register Driver</h2>
+      <form id="registerForm" class="form-grid">
+        <input type="text" id="regName" placeholder="Driver Name" aria-label="Driver Name" required />
+        <input type="text" id="regContact" placeholder="Contact Info" aria-label="Contact Info" required />
+        <button type="submit" class="btn"><i class="fa fa-plus-circle"></i> Add</button>
+      </form>
+    </section>
+
+    <!-- 2. Drivers List & Assign Q1 -->
+    <section id="drivers" class="tab glass-card hidden" aria-labelledby="driversHeading">
+      <h2 id="driversHeading"><i class="fa fa-users"></i> Drivers List</h2>
+      <button id="assignQ1Btn" class="btn"><i class="fa fa-cogs"></i> Assign Q1 Rigs</button>
+      <div class="table-container">
+        <table id="driversTable" aria-describedby="driversDesc">
+          <caption id="driversDesc">List of registered drivers and their Q1 rig assignment.</caption>
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Name</th>
+              <th scope="col">Q1 Rig</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. Q1 -->
+    <section id="q1" class="tab glass-card hidden" aria-labelledby="q1Heading">
+      <h2 id="q1Heading"><i class="fa fa-flag-checkered"></i> Q1 Qualifying</h2>
+      <div class="button-group">
+        <button id="evalQ1Btn" class="btn"><i class="fa fa-play"></i> Evaluate Q1</button>
+        <button id="assignQ2Btn" class="btn"><i class="fa fa-cogs"></i> Assign Q2 Rigs</button>
+      </div>
+      <div class="table-container">
+        <table id="q1Table" aria-describedby="q1Desc">
+          <caption id="q1Desc">Q1 best lap times and driver status.</caption>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Rig</th>
+              <th>Best Lap (m:ss:ms)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. Q2 -->
+    <section id="q2" class="tab glass-card hidden" aria-labelledby="q2Heading">
+      <h2 id="q2Heading"><i class="fa fa-flag-checkered"></i> Q2 Qualifying</h2>
+      <div class="button-group">
+        <button id="evalQ2Btn" class="btn"><i class="fa fa-play"></i> Evaluate Q2</button>
+        <button id="assignQ3Btn" class="btn"><i class="fa fa-cogs"></i> Assign Q3 Rigs</button>
+      </div>
+      <div class="table-container">
+        <table id="q2Table" aria-describedby="q2Desc">
+          <caption id="q2Desc">Q2 best lap times and driver status.</caption>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Rig</th>
+              <th>Best Lap (m:ss:ms)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 5. Q3 -->
+    <section id="q3" class="tab glass-card hidden" aria-labelledby="q3Heading">
+      <h2 id="q3Heading"><i class="fa fa-flag-checkered"></i> Q3 Qualifying</h2>
+      <div class="button-group">
+        <button id="evalQ3Btn" class="btn"><i class="fa fa-play"></i> Evaluate Q3</button>
+        <button id="prepBracketBtn" class="btn"><i class="fa fa-sitemap"></i> Prepare Bracket</button>
+      </div>
+      <div class="table-container">
+        <table id="q3Table" aria-describedby="q3Desc">
+          <caption id="q3Desc">Q3 best lap times, seeds, and elimination.</caption>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Rig</th>
+              <th>Best Lap (m:ss:ms)</th>
+              <th>Seed</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6. Bracket Manager -->
+    <section id="bracket" class="tab glass-card hidden" aria-labelledby="bracketHeading">
+      <h2 id="bracketHeading"><i class="fa fa-sitemap"></i> Bracket Manager</h2>
+      <label for="bracketPhase" class="form-label">
+        <i class="fa fa-filter"></i> Phase:
+      </label>
+      <select id="bracketPhase" class="form-select" aria-label="Select Bracket Phase">
+        <option value="QF">Quarter-Finals</option>
+        <option value="QF_DUEL">QF Runner-Up Duels</option>
+        <option value="SF">Semi-Finals</option>
+        <option value="SF_DUEL">SF Runner-Up Duel</option>
+        <option value="FINAL">Grand Final</option>
+      </select>
+      <div id="bracketManager" class="bracket-grid mt-1"></div>
+    </section>
+
+  </main>
+
+  <footer class="glass-card">
+    <div class="container">
+      <p style="text-align: center">© 2025 Race At Will</p>
+    </div>
+  </footer>
+
+  <input type="file" id="importFile" accept="application/json" class="hidden" aria-hidden="true" />
+  <script src="app.js"></script>
+</body>
+
+</html>

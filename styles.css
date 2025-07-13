@@ -1,0 +1,254 @@
+/* 0. Sticky Footer Setup */
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+main.container {
+  flex: 1 0 auto;
+}
+
+footer {
+  flex-shrink: 0;
+}
+
+/* 1. Import Fonts & Icons */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap");
+@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css");
+
+/* 2. Theme Variables */
+:root {
+  --bg: #0a0f18;
+  --surface: rgba(20, 28, 39, 0.75);
+  --glass: rgba(255, 255, 255, 0.05);
+  --primary: #3db4f2;
+  --primary-90: rgba(61, 180, 242, 0.9);
+  --accent: #00ffd5;
+  --text: #e1e8f0;
+  --text-dim: #a1b2c3;
+  --border: rgba(255, 255, 255, 0.15);
+  --radius: 8px;
+  --transition: 0.3s ease;
+}
+
+/* 3. Reset & Base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* 4. Responsive Nav */
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+nav button {
+  flex: 1;
+  padding: .75rem 1rem;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+
+nav button.active,
+nav button:hover {
+  color: var(--accent);
+  background: var(--glass);
+}
+
+/* 5. Tab Pane */
+.tab {
+  padding: 1.5rem;
+  animation: fadeIn var(--transition) both;
+}
+
+.hidden {
+  display: none;
+}
+
+/* 6. Glass Cards & Bracket Heats */
+.glass-card,
+.bracket-heat {
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.glass-card:hover,
+.bracket-heat:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* 7. Tables */
+.table-container {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+th,
+td {
+  padding: .75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--accent);
+}
+
+/* 8. Forms */
+input[type="text"],
+select {
+  width: 100%;
+  padding: .5rem .75rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color var(--transition);
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* 9. Buttons */
+button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: .6rem 1.2rem;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+
+button:hover,
+.btn:hover {
+  background: var(--primary-90);
+  transform: translateY(-2px);
+}
+
+/* 10. Bracket Grid (optional) */
+.bracket-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+/* 11. Utility Classes */
+.text-accent {
+  color: var(--accent);
+}
+
+.mt-1 {
+  margin-top: 1rem;
+}
+
+.mb-1 {
+  margin-bottom: 1rem;
+}
+
+/* 12. Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 13. Breakpoints */
+@media (min-width: 600px) {
+  body {
+    font-size: 1.025rem;
+  }
+}
+
+@media (min-width: 900px) {
+  nav {
+    justify-content: center;
+  }
+}
+
+@media (min-width: 1200px) {
+  body {
+    font-size: 1.1rem;
+  }
+
+  .tab {
+    padding: 2rem;
+  }
+}
+
+/* Icon → Text spacing */
+nav button i,
+.btn i,
+.form-label i {
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+/* participant spacing */
+.participant {
+  margin-right: 0.5rem;
+}
+
+/* in styles.css */
+.eliminated td {
+  text-decoration: line-through;
+  color: #777;
+  opacity: 0.6;
+  transition: opacity .3s;
+}
