@@ -20,13 +20,15 @@
         <button data-tab="q1"><i class="fa fa-clock"></i> Q1</button>
         <button data-tab="q2"><i class="fa fa-clock"></i> Q2</button>
         <button data-tab="q3"><i class="fa fa-clock"></i> Q3</button>
-        <button data-tab="bracket"><i class="fa fa-sitemap"></i> Bracket</button>
-        <button id="resetBtn" class="btn" style="display: none;">
-          <i class="fa fa-undo"></i> Reset All
+        <button data-tab="bracket"><i class="fa fa-sitemap"></i> Race Manger</button>
+        <button data-tab="admin" id="adminTabBtn" class="hidden">
+          <i class="fa fa-shield-alt"></i> Admin
         </button>
       </nav>
     </div>
   </header>
+
+  <div id="msgBanner" class="hidden"></div>
 
   <main class="container">
 
@@ -113,11 +115,11 @@
       <h2 id="q3Heading"><i class="fa fa-flag-checkered"></i> Q3 Qualifying</h2>
       <div class="button-group">
         <button id="evalQ3Btn" class="btn"><i class="fa fa-play"></i> Evaluate Q3</button>
-        <button id="prepBracketBtn" class="btn"><i class="fa fa-sitemap"></i> Prepare Bracket</button>
+        <button id="prepBracketBtn" class="btn"><i class="fa fa-sitemap"></i> Prepare Race Format</button>
       </div>
       <div class="table-container">
         <table id="q3Table" aria-describedby="q3Desc">
-          <caption id="q3Desc">Q3 best lap times, seeds, and elimination.</caption>
+          <caption id="q3Desc">Q3 best lap times and driver status.</caption>
           <thead>
             <tr>
               <th>#</th>
@@ -135,7 +137,7 @@
 
     <!-- 6. Bracket Manager -->
     <section id="bracket" class="tab glass-card hidden" aria-labelledby="bracketHeading">
-      <h2 id="bracketHeading"><i class="fa fa-sitemap"></i> Bracket Manager</h2>
+      <h2 id="bracketHeading"><i class="fa fa-sitemap"></i> Race Manager</h2>
       <label for="bracketPhase" class="form-label">
         <i class="fa fa-filter"></i> Phase:
       </label>
@@ -149,6 +151,24 @@
       <div id="bracketManager" class="bracket-grid mt-1"></div>
     </section>
 
+    <!-- 7. Admin  -->
+    <section id="admin" class="tab hidden" aria-labelledby="adminHeading">
+      <h2 id="adminHeading"><i class="fa fa-tools"></i> Admin Tools</h2>
+
+      <button id="exportBtn" class="btn">
+        <i class="fa fa-download"></i> Export JSON
+      </button>
+
+      <button id="importBtn" class="btn">
+        <i class="fa fa-upload"></i> Import JSON
+      </button>
+      <input type="file" id="importFile" accept="application/json" class="hidden" />
+
+      <button id="resetBtn" class="btn">
+        <i class="fa fa-undo"></i> Reset All
+      </button>
+    </section>
+
   </main>
 
   <footer class="glass-card">
@@ -157,7 +177,6 @@
     </div>
   </footer>
 
-  <input type="file" id="importFile" accept="application/json" class="hidden" aria-hidden="true" />
   <script src="app.js"></script>
 </body>
 

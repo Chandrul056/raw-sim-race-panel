@@ -252,3 +252,57 @@ nav button i,
   opacity: 0.6;
   transition: opacity .3s;
 }
+
+.hidden {
+  display: none;
+}
+
+.tab {
+  /* your existing tab styling */
+}
+
+/* Register form spacing */
+.form-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  /* space between fields */
+  margin-top: 1rem;
+  /* optional: space above the form */
+}
+
+.form-grid input,
+.form-grid button {
+  flex: 1 1 200px;
+  /* let inputs grow, but never shrink below 200px */
+  margin: 0;
+  /* gaps handled by the container */
+}
+
+#msgBanner {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-size: 2rem;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#msgBanner.show {
+  opacity: 1;
+}
+
+#msgBanner.hidden {
+  display: none;
+}
+
+.match-participants {
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
