@@ -28,6 +28,28 @@ function showMessage(txt, duration = 3000) {
 }
 
 
+function validateSession(tableId, buttonEl) {
+  const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+  // if there are no rows, we’re definitely not ready
+  if (rows.length === 0) {
+    buttonEl.disabled = true;
+    return;
+  }
+  const allFilled = Array.from(rows).every(tr => {
+    const v = tr.querySelector('input').value.trim().toUpperCase();
+    return v === 'DNF' || parseTimeString(v) != null;
+  });
+  buttonEl.disabled = !allFilled;
+}
+
+
+// session‑specific wrappers
+function validateQ1() { validateSession('q1Table', evalQ1Btn); }
+function validateQ2() { validateSession('q2Table', evalQ2Btn); }
+function validateQ3() { validateSession('q3Table', evalQ3Btn); }
+
+
+
 
 // ---------- State & Persistence ----------
 let state = { drivers: [], matches: [] };
@@ -46,6 +68,22 @@ document.getElementById('resetBtn').onclick = () => {
   }
 };
 loadState();
+
+const evalQ1Btn = document.getElementById('evalQ1Btn');
+const evalQ2Btn = document.getElementById('evalQ2Btn');
+const evalQ3Btn = document.getElementById('evalQ3Btn');
+const assignQ2Btn = document.getElementById('assignQ2Btn');
+const assignQ3Btn = document.getElementById('assignQ3Btn');
+const bracketManager = document.getElementById('prepBracketBtn');
+
+// start disabled
+evalQ1Btn.disabled = true;
+evalQ2Btn.disabled = true;
+evalQ3Btn.disabled = true;
+assignQ2Btn.disabled = true;
+assignQ3Btn.disabled = true;
+bracketManager.disabled = true;
+
 // Only show Reset if ?admin=1 is in the URL
 const params = new URLSearchParams(window.location.search);
 const isAdmin = params.get('admin') === '1';
@@ -132,7 +170,7 @@ document.querySelector('button[data-tab="register"]').click();
 document.getElementById('registerForm').onsubmit = e => {
   e.preventDefault();
   const name = e.target.regName.value.trim();
-  const contact = e.target.regContact.value.trim();
+  // const contact = e.target.regContact.value.trim();
   if (!name) return;
 
   // **new**: prevent duplicate names (case-insensitive)
@@ -146,7 +184,7 @@ document.getElementById('registerForm').onsubmit = e => {
   state.drivers.push({
     id: next,
     name,
-    contact,                // store the contact
+    // contact,                // store the contact
     q1Rig: null, q1BestRaw: "", q1Best: null, status: "in",
     q2Rig: null, q2BestRaw: "", q2Best: null,
     q3Rig: null, q3BestRaw: "", q3Best: null,
@@ -157,6 +195,9 @@ document.getElementById('registerForm').onsubmit = e => {
   alert(`Added Driver #${next}`);
   renderAll();
 };
+
+
+
 
 
 // ---------- 2. Drivers List & Assign Q1 ----------
@@ -187,9 +228,9 @@ document.getElementById('evalQ1Btn').onclick = () => {
   // 1) Gather all Q1 participants
   const participants = state.drivers.filter(d => d.q1Rig);
   const totalCount = participants.length;
-
+  const keepCount = 24;
   // 2) Compute number to eliminate (30% of total, rounded up)
-  const eliminateCount = Math.ceil(totalCount * 0.3);
+  const eliminateCount = Math.max(0, totalCount - keepCount);
 
   // 3) Mark any “DNF” as out immediately
   participants.forEach(d => {
@@ -221,6 +262,7 @@ document.getElementById('evalQ1Btn').onclick = () => {
   saveState();
   renderAll();
   showMessage(`✅ Q1 evaluated (eliminated ${eliminateCount} of ${totalCount})`);
+  assignQ2Btn.disabled = false;
 };
 
 document.getElementById('assignQ2Btn').onclick = () => {
@@ -277,6 +319,7 @@ function renderQ1() {
 
     tb.appendChild(tr);
   });
+  validateQ1();
 }
 
 // ---------- 4. Q2 – Eval & Assign Q3 ----------
@@ -284,7 +327,7 @@ document.getElementById('evalQ2Btn').onclick = () => {
   // 1) Full Q2 field
   const participants = state.drivers.filter(d => d.q2Rig);
   const totalCount = participants.length;
-  const keepCount = 16;
+  const keepCount = 18;
   const eliminateTarget = Math.max(0, totalCount - keepCount);
 
   // 2) Auto-DNF elimination
@@ -311,6 +354,7 @@ document.getElementById('evalQ2Btn').onclick = () => {
   saveState();
   renderAll();
   showMessage(`✅ Q2 evaluated (eliminated ${eliminateTarget} of ${totalCount})`);
+  assignQ3Btn.disabled = false;
 };
 
 document.getElementById('assignQ3Btn').onclick = () => {
@@ -366,6 +410,7 @@ function renderQ2() {
 
     tb.appendChild(tr);
   });
+  validateQ2();
 }
 
 // ---------- 5. Q3 – Eval & Prep Bracket ----------
@@ -404,12 +449,13 @@ document.getElementById('evalQ3Btn').onclick = () => {
 
   seeds.forEach((d, i) => {
     d.seed = i + 1;
-    d.status = 'seeded';
+    d.status = 'RACE!';
   });
 
   saveState();
   renderAll();
-  showMessage(`✅ Q3 evaluated (seeded ${Math.min(seeds.length, seedCount)} of ${totalCount})`);
+  showMessage(`✅ Q3 evaluated (eliminated ${eliminateTarget} of ${totalCount})`);
+  bracketManager.disabled = false;
 };
 
 document.getElementById('prepBracketBtn').onclick = () => {
@@ -432,7 +478,7 @@ document.getElementById('prepBracketBtn').onclick = () => {
   // SF Duel
   state.matches.push({ id: 'SF_DUEL1', phase: 'SF_DUEL', heat: 1, participants: [], winner: null });
   // Final
-  state.matches.push({ id: 'FINAL1', phase: 'FINAL', heat: 1, participants: [], winner: null, runnerUp: null });
+  state.matches.push({ id: 'FINAL', phase: 'FINAL', heat: 1, participants: [], winner: null, runnerUp: null });
   saveState();
   renderBracketManager();
   showMessage('✅ Race Format Prepared!');
@@ -460,7 +506,6 @@ function renderQ3() {
       <td>${d.name}</td>
       <td>${d.q3Rig}</td>
       <td><input type="text" value="${d.q3BestRaw || ''}" placeholder="m:ss:ms or DNF"></td>
-      <td>${d.seed || ''}</td>
       <td>${d.status}</td>
     `;
 
@@ -485,6 +530,7 @@ function renderQ3() {
 
     tb.appendChild(tr);
   });
+  validateQ3();
 }
 
 // ---------- 6. Bracket Manager ----------
@@ -647,7 +693,7 @@ function renderBracketManager() {
       };
       rS.onchange = () => {
         m.runnerUp = +rS.value || null;
-        slotToMatch('FINAL1', m.winner);
+        slotToMatch('FINAL', m.winner);
         slotToMatch('SF_DUEL1', m.runnerUp);
         saveState(); renderBracketManager();
       };
@@ -682,7 +728,7 @@ function renderBracketManager() {
       wL.appendChild(wS); div.appendChild(wL);
       wS.onchange = () => {
         m.winner = +wS.value || null;
-        slotToMatch('FINAL1', m.winner);
+        slotToMatch('FINAL', m.winner);
         saveState(); renderBracketManager();
       };
       cont.appendChild(div);

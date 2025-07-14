@@ -306,3 +306,21 @@ nav button i,
   margin-bottom: 0.5rem;
   font-weight: bold;
 }
+
+/* make disabled buttons look inactive */
+button:disabled,
+.btn:disabled {
+  opacity: 0.6;
+  /* fade it out */
+  cursor: not-allowed;
+  /* show the “no‐entry” cursor */
+  filter: grayscale(50%);
+  /* optional: remove color */
+}
+
+/* ensure hover doesn’t override disabled styling */
+button:disabled:hover,
+.btn:disabled:hover {
+  background-color: inherit;
+  /* keep the same background */
+}
