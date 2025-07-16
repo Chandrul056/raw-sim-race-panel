@@ -13,14 +13,21 @@
 
   <header>
     <div class="container">
-      <h1 class="site-title">🏁 RAW Spa Sim-Race Panel</h1>
+      <div class="logo-group">
+        <!-- RAW logo on the left -->
+        <img src="assets/RAW_Logo.png" alt="RAW Logo" class="logo raw-logo">
+        <!-- Your existing title -->
+        <h1 class="site-title">🏁 RAW F1 Tournament - Spa - Sim-Race Panel 🏁</h1>
+        <!-- F1 logo on the right -->
+        <img src="assets/F1_Logo.png" alt="Formula 1 Logo" class="logo f1-logo">
+      </div>
       <nav role="navigation" aria-label="Main">
         <button data-tab="register"><i class="fa fa-user-plus"></i> Register</button>
         <button data-tab="drivers"><i class="fa fa-users"></i> Drivers</button>
         <button data-tab="q1"><i class="fa fa-clock"></i> Q1</button>
         <button data-tab="q2"><i class="fa fa-clock"></i> Q2</button>
         <button data-tab="q3"><i class="fa fa-clock"></i> Q3</button>
-        <button data-tab="bracket"><i class="fa fa-sitemap"></i> Race Manger</button>
+        <button data-tab="bracket"><i class="fa fa-sitemap"></i> Race Manager</button>
         <button data-tab="admin" id="adminTabBtn" class="hidden">
           <i class="fa fa-shield-alt"></i> Admin
         </button>
@@ -78,6 +85,7 @@
               <th>Name</th>
               <th>Rig</th>
               <th>Best Lap (m:ss:ms)</th>
+              <th>Gap</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -102,6 +110,7 @@
               <th>Name</th>
               <th>Rig</th>
               <th>Best Lap (m:ss:ms)</th>
+              <th>Gap</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -126,6 +135,7 @@
               <th>Name</th>
               <th>Rig</th>
               <th>Best Lap (m:ss:ms)</th>
+              <th>Gap</th>
               <!-- <th>Seed</th> -->
               <th>Status</th>
             </tr>

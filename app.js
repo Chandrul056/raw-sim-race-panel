@@ -27,6 +27,9 @@ function showMessage(txt, duration = 3000) {
   }, duration);
 }
 
+function formatGap(ms) {
+  return '+' + (ms / 1000).toFixed(3);
+}
 
 function validateSession(tableId, buttonEl) {
   const rows = document.querySelectorAll(`#${tableId} tbody tr`);
@@ -285,15 +288,26 @@ function renderQ1() {
       return a.q1Best - b.q1Best;
     });
 
+  // Identify pole time (fastest valid lap)
+  const leader = list.find(d => d.q1Best != null);
+  const poleTime = leader ? leader.q1Best : null;
+
   list.forEach((d, idx) => {
     const tr = document.createElement('tr');
     if (d.status === 'out') tr.classList.add('eliminated');
+
+    // compute the gap display
+    let gapDisplay = '';
+    if (poleTime != null && d.q1Best != null) {
+      gapDisplay = formatGap(d.q1Best - poleTime);
+    }
 
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>${d.name}</td>
       <td>${d.q1Rig}</td>
       <td><input type="text" value="${d.q1BestRaw || ''}" placeholder="m:ss:ms or DNF"></td>
+      <td>${gapDisplay}</td>
       <td>${d.status}</td>
     `;
 
@@ -377,15 +391,26 @@ function renderQ2() {
       return a.q2Best - b.q2Best;
     });
 
+  // Identify pole time (fastest valid lap)
+  const leader = list.find(d => d.q1Best != null);
+  const poleTime = leader ? leader.q1Best : null;
+
   list.forEach((d, idx) => {
     const tr = document.createElement('tr');
     if (d.status === 'out') tr.classList.add('eliminated');
+
+    // compute the gap display
+    let gapDisplay = '';
+    if (poleTime != null && d.q1Best != null) {
+      gapDisplay = formatGap(d.q1Best - poleTime);
+    }
 
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>${d.name}</td>
       <td>${d.q2Rig}</td>
       <td><input type="text" value="${d.q2BestRaw || ''}" placeholder="m:ss:ms or DNF"></td>
+      <td>${gapDisplay}</td>
       <td>${d.status}</td>
     `;
 
@@ -497,15 +522,26 @@ function renderQ3() {
       return a.q3Best - b.q3Best;
     });
 
+  // Identify pole time (fastest valid lap)
+  const leader = list.find(d => d.q1Best != null);
+  const poleTime = leader ? leader.q1Best : null;
+
   list.forEach((d, idx) => {
     const tr = document.createElement('tr');
     if (d.status === 'out') tr.classList.add('eliminated');
+
+    // compute the gap display
+    let gapDisplay = '';
+    if (poleTime != null && d.q1Best != null) {
+      gapDisplay = formatGap(d.q1Best - poleTime);
+    }
 
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td>${d.name}</td>
       <td>${d.q3Rig}</td>
       <td><input type="text" value="${d.q3BestRaw || ''}" placeholder="m:ss:ms or DNF"></td>
+      <td>${gapDisplay}</td>
       <td>${d.status}</td>
     `;
 
