@@ -195,7 +195,7 @@ document.getElementById('registerForm').onsubmit = e => {
   });
   saveState();
   e.target.reset();
-  alert(`Added Driver #${next}`);
+  alert(`Added Driver #${next} - ${name}`);
   renderAll();
 };
 
@@ -392,8 +392,8 @@ function renderQ2() {
     });
 
   // Identify pole time (fastest valid lap)
-  const leader = list.find(d => d.q1Best != null);
-  const poleTime = leader ? leader.q1Best : null;
+  const leader = list.find(d => d.q2Best != null);
+  const poleTime = leader ? leader.q2Best : null;
 
   list.forEach((d, idx) => {
     const tr = document.createElement('tr');
@@ -401,8 +401,8 @@ function renderQ2() {
 
     // compute the gap display
     let gapDisplay = '';
-    if (poleTime != null && d.q1Best != null) {
-      gapDisplay = formatGap(d.q1Best - poleTime);
+    if (poleTime != null && d.q2Best != null) {
+      gapDisplay = formatGap(d.q2Best - poleTime);
     }
 
     tr.innerHTML = `
@@ -523,8 +523,8 @@ function renderQ3() {
     });
 
   // Identify pole time (fastest valid lap)
-  const leader = list.find(d => d.q1Best != null);
-  const poleTime = leader ? leader.q1Best : null;
+  const leader = list.find(d => d.q3Best != null);
+  const poleTime = leader ? leader.q3Best : null;
 
   list.forEach((d, idx) => {
     const tr = document.createElement('tr');
@@ -532,8 +532,8 @@ function renderQ3() {
 
     // compute the gap display
     let gapDisplay = '';
-    if (poleTime != null && d.q1Best != null) {
-      gapDisplay = formatGap(d.q1Best - poleTime);
+    if (poleTime != null && d.q3Best != null) {
+      gapDisplay = formatGap(d.q3Best - poleTime);
     }
 
     tr.innerHTML = `
