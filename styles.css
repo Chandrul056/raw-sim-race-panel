@@ -330,7 +330,8 @@ button:disabled:hover,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;          /* allow wrapping on narrow screens */
+  flex-wrap: wrap;
+  /* allow wrapping on narrow screens */
   width: 100%;
   padding: 0.5rem 0;
 }
@@ -349,9 +350,10 @@ button:disabled:hover,
 
 /* 3. Centered, flexible title */
 .site-title {
-  flex: 1;                  
+  flex: 1;
   text-align: center;
-  margin: 0 1rem;           /* leave breathing room around the text */
+  margin: 0 1rem;
+  /* leave breathing room around the text */
   font-size: 2rem;
   line-height: 1.2;
 }
@@ -361,6 +363,7 @@ button:disabled:hover,
   .logo {
     width: 50px;
   }
+
   .site-title {
     font-size: 1.5rem;
     margin: 0.5rem 0;
@@ -373,17 +376,69 @@ button:disabled:hover,
     flex-direction: column;
     align-items: center;
   }
+
   .site-title {
-    order: 2;                /* sit between the two logos */
+    order: 2;
+    /* sit between the two logos */
     font-size: 1.25rem;
     margin: 0.5rem 0;
   }
+
   .raw-logo {
     order: 1;
     margin-bottom: 0.5rem;
   }
+
   .f1-logo {
     order: 3;
     margin-top: 0.5rem;
   }
+}
+
+.podium {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 1rem;
+  margin: 2rem 0;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.podium.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.podium-tier {
+  width: 120px;
+  padding: 0.5rem;
+  border-radius: 4px;
+  color: #fff;
+  text-align: center;
+  font-weight: bold;
+}
+
+.podium-tier.gold {
+  background: #e5c600;
+  transform: scale(1.1);
+}
+
+.podium-tier.silver {
+  background: #c0c0c0;
+}
+
+.podium-tier.bronze {
+  background: #cd7f32;
+}
+
+.podium-tier .medal {
+  display: block;
+  font-size: 2rem;
+}
+
+.podium-tier .driver-name {
+  margin-top: 0.3rem;
+  font-size: 1rem;
 }

@@ -31,6 +31,41 @@ function formatGap(ms) {
   return '+' + (ms / 1000).toFixed(3);
 }
 
+/**
+ * Assigns A→B→C cockpits to one match, based on each driver.lastRig,
+ * bumping on conflicts so everyone in that match has a unique seat.
+ * Also updates each driver.lastRig for the next round.
+ */
+function assignRigsForMatch(match) {
+  const cockpits = ['A', 'B', 'C'];
+  match.rigAssignments = match.rigAssignments || {};
+  const taken = new Set();
+
+  match.participants.forEach(pid => {
+    const driver = state.drivers.find(d => d.id === pid);
+    // compute next cockpit after their true lastRig
+    let idx = driver.lastRig != null
+      ? (cockpits.indexOf(driver.lastRig) + 1) % cockpits.length
+      : 0;
+    let rig = cockpits[idx];
+
+    // bump until it’s not already taken in this match
+    while (taken.has(rig)) {
+      idx = (idx + 1) % cockpits.length;
+      rig = cockpits[idx];
+    }
+
+    // record it
+    match.rigAssignments[pid] = rig;
+    taken.add(rig);
+
+    // update driver for future rounds
+    driver.lastRig = rig;
+    driver.sessionCount = (driver.sessionCount || 3) + 1;
+  });
+}
+
+
 function validateSession(tableId, buttonEl) {
   const rows = document.querySelectorAll(`#${tableId} tbody tr`);
   // if there are no rows, we’re definitely not ready
@@ -120,7 +155,7 @@ document.getElementById('importFile').onchange = e => {
   reader.readAsText(file);
 };
 
-// ---------- Seed 25 Drivers if Empty ----------
+// ----------Seed 25 Drivers if Empty----------
 // if (!state.drivers.length) {
 //   const demoNames = [
 //     'Aarav Mehta', 'Saanvi Sharma', 'Rohan Gupta', 'Isha Patel', 'Arjun Reddy',
@@ -137,7 +172,9 @@ document.getElementById('importFile').onchange = e => {
 //     q1Rig: null, q1BestRaw: "", q1Best: null, status: "in",
 //     q2Rig: null, q2BestRaw: "", q2Best: null,
 //     q3Rig: null, q3BestRaw: "", q3Best: null,
-//     seed: null
+//     seed: null,
+//     lastRig: null,
+//     sessionCount: 0
 //   }));
 
 //   saveState();
@@ -191,7 +228,9 @@ document.getElementById('registerForm').onsubmit = e => {
     q1Rig: null, q1BestRaw: "", q1Best: null, status: "in",
     q2Rig: null, q2BestRaw: "", q2Best: null,
     q3Rig: null, q3BestRaw: "", q3Best: null,
-    seed: null
+    seed: null,
+    lastRig: null,
+    sessionCount: 0
   });
   saveState();
   e.target.reset();
@@ -205,11 +244,15 @@ document.getElementById('registerForm').onsubmit = e => {
 
 // ---------- 2. Drivers List & Assign Q1 ----------
 document.getElementById('assignQ1Btn').onclick = () => {
-  state.drivers.forEach(d => {
-    d.q1Rig = cockpits[(d.id - 1) % cockpits.length];
+  state.drivers.forEach((d, i) => {
+    const rig = cockpits[i % cockpits.length];
+    d.q1Rig = rig;
+    d.lastRig = rig;
+    d.sessionCount = 1;
     d.status = "in";
   });
-  saveState(); renderDriversList();
+  saveState();
+  renderDriversList();
   showMessage('✅ Q1 rigs assigned');
 };
 function renderDriversList() {
@@ -269,9 +312,25 @@ document.getElementById('evalQ1Btn').onclick = () => {
 };
 
 document.getElementById('assignQ2Btn').onclick = () => {
-  state.drivers.filter(d => d.status === "in")
-    .forEach(d => d.q2Rig = cockpits[(d.id) % cockpits.length]);
-  saveState(); renderAll();
+  const inDrivers = state.drivers.filter(d => d.status === 'in');
+
+  // if every in‑driver already has a q2Rig, skip
+  if (inDrivers.every(d => d.q2Rig)) {
+    showMessage('✅ Q2 rigs already assigned - No Change.');
+    return;
+  }
+
+  // … existing logic to pick next after lastRig …
+  inDrivers.forEach(d => {
+    const idx = (cockpits.indexOf(d.lastRig) + 1) % cockpits.length;
+    const rig = cockpits[idx];
+    d.q2Rig = rig;
+    d.lastRig = rig;
+    d.sessionCount++;
+  });
+
+  saveState();
+  renderAll();
   showMessage('✅ Q2 rigs assigned');
 };
 function renderQ1() {
@@ -372,9 +431,23 @@ document.getElementById('evalQ2Btn').onclick = () => {
 };
 
 document.getElementById('assignQ3Btn').onclick = () => {
-  state.drivers.filter(d => d.status === "in")
-    .forEach(d => d.q3Rig = cockpits[(d.id + 1) % cockpits.length]);
-  saveState(); renderAll();
+  const inDrivers = state.drivers.filter(d => d.status === 'in');
+
+  if (inDrivers.every(d => d.q3Rig)) {
+    showMessage('✅ Q3 rigs already assigned - No Change.');
+    return;
+  }
+
+  inDrivers.forEach(d => {
+    const idx = (cockpits.indexOf(d.lastRig) + 1) % cockpits.length;
+    const rig = cockpits[idx];
+    d.q3Rig = rig;
+    d.lastRig = rig;
+    d.sessionCount++;
+  });
+
+  saveState();
+  renderAll();
   showMessage('✅ Q3 rigs assigned');
 };
 function renderQ2() {
@@ -484,30 +557,83 @@ document.getElementById('evalQ3Btn').onclick = () => {
 };
 
 document.getElementById('prepBracketBtn').onclick = () => {
+  // — only run once —
+  if (
+    state.matches.length > 0 &&
+    state.matches[0].rigAssignments &&
+    Object.keys(state.matches[0].rigAssignments).length > 0
+  ) {
+    showMessage('✅ Race format already prepared - Rigs Locked.');
+    return;
+  }
+
+  // 1) Build bracket matches
   state.matches = [];
-  const seeds = state.drivers.filter(d => d.seed).sort((a, b) => a.seed - b.seed);
-  // QF Heats
+  const seeds = state.drivers
+    .filter(d => d.seed)
+    .sort((a, b) => a.seed - b.seed);
+
+  // Quarter‑Finals
   [[1, 8, 9], [2, 7, 10], [3, 6, 11], [4, 5, 12]].forEach((grp, i) => {
     state.matches.push({
-      id: `QF${i + 1}`, phase: 'QF', heat: i + 1,
+      id: `QF${i + 1}`,
+      phase: 'QF',
+      heat: i + 1,
       participants: grp.map(s => seeds.find(d => d.seed === s).id),
-      winner: null, runnerUp: null, ruTimeRaw: ""
+      winner: null,
+      runnerUp: null,
+      ruTimeRaw: "",
+      rigAssignments: {}
     });
   });
-  // QF Duels
-  state.matches.push({ id: 'QF_DUEL1', phase: 'QF_DUEL', heat: 1, participants: [], winner: null });
-  state.matches.push({ id: 'QF_DUEL2', phase: 'QF_DUEL', heat: 2, participants: [], winner: null });
-  // SF Heats
-  state.matches.push({ id: 'SF1', phase: 'SF', heat: 1, participants: [], winner: null, runnerUp: null });
-  state.matches.push({ id: 'SF2', phase: 'SF', heat: 2, participants: [], winner: null, runnerUp: null });
-  // SF Duel
-  state.matches.push({ id: 'SF_DUEL1', phase: 'SF_DUEL', heat: 1, participants: [], winner: null });
-  // Final
-  state.matches.push({ id: 'FINAL', phase: 'FINAL', heat: 1, participants: [], winner: null, runnerUp: null });
+  // QF Runner‑Up Duels
+  state.matches.push({ id: 'QF_DUEL1', phase: 'QF_DUEL', heat: 1, participants: [], winner: null, rigAssignments: {} });
+  state.matches.push({ id: 'QF_DUEL2', phase: 'QF_DUEL', heat: 2, participants: [], winner: null, rigAssignments: {} });
+
+  // Semi‑Finals
+  state.matches.push({ id: 'SF1', phase: 'SF', heat: 1, participants: [], winner: null, runnerUp: null, rigAssignments: {} });
+  state.matches.push({ id: 'SF2', phase: 'SF', heat: 2, participants: [], winner: null, runnerUp: null, rigAssignments: {} });
+
+  // SF Runner‑Up Duel
+  state.matches.push({ id: 'SF_DUEL1', phase: 'SF_DUEL', heat: 1, participants: [], winner: null, rigAssignments: {} });
+
+  // Grand Final
+  state.matches.push({ id: 'FINAL', phase: 'FINAL', heat: 1, participants: [], winner: null, runnerUp: null, rigAssignments: {} });
+
+  // 2) Rig rotation: next after each driver.lastRig, bump conflicts
+  const cockpits = ['A', 'B', 'C'];
+  state.matches.forEach(match => {
+    const taken = new Set();
+    match.participants.forEach(pid => {
+      const driver = state.drivers.find(d => d.id === pid);
+
+      // compute desired = next after lastRig
+      let idx = driver.lastRig
+        ? (cockpits.indexOf(driver.lastRig) + 1) % cockpits.length
+        : 0;
+      let rig = cockpits[idx];
+
+      // bump until free
+      while (taken.has(rig)) {
+        idx = (idx + 1) % cockpits.length;
+        rig = cockpits[idx];
+      }
+
+      // assign & record
+      match.rigAssignments[pid] = rig;
+      taken.add(rig);
+
+      // update for following rounds
+      driver.lastRig = rig;
+      driver.sessionCount = (driver.sessionCount || 3) + 1;
+    });
+  });
+
   saveState();
   renderBracketManager();
-  showMessage('✅ Race Format Prepared!');
+  showMessage('✅ Race Format Prepared! Cockpit rotation locked in.');
 };
+
 function renderQ3() {
   const tb = document.querySelector('#q3Table tbody');
   tb.innerHTML = '';
@@ -589,8 +715,13 @@ function renderBracketManager() {
       // seeds
       const names = m.participants.map(pid => {
         const d = state.drivers.find(x => x.id === pid);
-        return d ? d.name : 'TBD';
+        // look up the rig we assigned in this match
+        const rig = m.rigAssignments?.[pid] || '–';
+        return d
+          ? `${d.name} (Rig ${rig})`
+          : `TBD (Rig ${rig})`;
       });
+
       const p = document.createElement('p');
       p.className = 'match-participants';
       p.textContent = names.join(' vs ');
@@ -644,11 +775,21 @@ function renderBracketManager() {
 
       cont.appendChild(div);
     });
+    // create the button just like your other .btns
     const btn = document.createElement('button');
+    btn.classList.add('btn');
     btn.textContent = 'Evaluate QF Duels';
     btn.onclick = evaluateQFDuels;
-    cont.appendChild(btn);
+
+    // wrap it in a .button-group for consistent width & spacing
+    const wrapper = document.createElement('div');
+    wrapper.className = 'button-group';
+    wrapper.appendChild(btn);
+
+    // append the wrapper instead of the raw button
+    cont.appendChild(wrapper);
     return;
+
   }
 
   // QF DUEL
@@ -659,8 +800,13 @@ function renderBracketManager() {
       div.innerHTML = `<h3>${m.id}</h3>`;
       const names = m.participants.map(pid => {
         const d = state.drivers.find(x => x.id === pid);
-        return d ? d.name : 'TBD';
+        // look up the rig we assigned in this match
+        const rig = m.rigAssignments?.[pid] || '–';
+        return d
+          ? `${d.name} (Rig ${rig})`
+          : `TBD (Rig ${rig})`;
       });
+
       const p = document.createElement('p');
       p.className = 'match-participants';
       p.textContent = names.join(' vs ');
@@ -677,9 +823,20 @@ function renderBracketManager() {
       wL.appendChild(wS); div.appendChild(wL);
       wS.onchange = () => {
         m.winner = +wS.value || null;
-        slotToMatch((m.heat === 1 ? 'SF1' : 'SF2'), m.winner);
-        saveState(); renderBracketManager();
+        // 1) slot into SF1 or SF2
+        const targetSF = (m.heat === 1 ? 'SF1' : 'SF2');
+        slotToMatch(targetSF, m.winner);
+
+        // 2) assign rigs for that SF match immediately
+        const sfMatch = state.matches.find(x => x.id === targetSF);
+        if (sfMatch && sfMatch.participants.length > 0) {
+          assignRigsForMatch(sfMatch);
+        }
+
+        saveState();
+        renderBracketManager();
       };
+
       cont.appendChild(div);
     });
     return;
@@ -693,8 +850,13 @@ function renderBracketManager() {
       div.innerHTML = `<h3>${m.id}</h3>`;
       const names = m.participants.map(pid => {
         const d = state.drivers.find(x => x.id === pid);
-        return d ? d.name : 'TBD';
+        // look up the rig we assigned in this match
+        const rig = m.rigAssignments?.[pid] || '–';
+        return d
+          ? `${d.name} (Rig ${rig})`
+          : `TBD (Rig ${rig})`;
       });
+
       const p = document.createElement('p');
       p.className = 'match-participants';
       p.textContent = names.join(' vs ');
@@ -731,6 +893,11 @@ function renderBracketManager() {
         m.runnerUp = +rS.value || null;
         slotToMatch('FINAL', m.winner);
         slotToMatch('SF_DUEL1', m.runnerUp);
+        // Assign cockpits to that Duel match right away
+        const sfDuel = state.matches.find(x => x.id === 'SF_DUEL1');
+        if (sfDuel && sfDuel.participants.length === 2) {
+          assignRigsForMatch(sfDuel);
+        }
         saveState(); renderBracketManager();
       };
       cont.appendChild(div);
@@ -746,12 +913,17 @@ function renderBracketManager() {
       div.innerHTML = `<h3>${m.id}</h3>`;
       const names = m.participants.map(pid => {
         const d = state.drivers.find(x => x.id === pid);
-        return d ? d.name : 'TBD';
+        // look up the rig we assigned in this match
+        const rig = m.rigAssignments?.[pid] || '–';
+        return d
+          ? `${d.name} (Rig ${rig})`
+          : `TBD (Rig ${rig})`;
       });
       const p = document.createElement('p');
       p.className = 'match-participants';
       p.textContent = names.join(' vs ');
       div.appendChild(p);
+      // Winner selector
       const wL = document.createElement('label');
       wL.textContent = 'Winner: ';
       const wS = document.createElement('select');
@@ -761,16 +933,33 @@ function renderBracketManager() {
         if (d) wS.add(new Option(d.name, pid));
       });
       wS.value = m.winner || '';
-      wL.appendChild(wS); div.appendChild(wL);
+      wL.appendChild(wS);
+      div.appendChild(wL);
+
+      // When you pick the SF_DUEL winner:
       wS.onchange = () => {
         m.winner = +wS.value || null;
+
+        // 1) Slot into the Final
         slotToMatch('FINAL', m.winner);
-        saveState(); renderBracketManager();
+
+        // 2) Assign rigs for the Final match
+        const finalMatch = state.matches.find(x => x.id === 'FINAL');
+        if (finalMatch && finalMatch.participants.length > 0) {
+          assignRigsForMatch(finalMatch);
+        }
+
+        // 3) Persist and re-render
+        saveState();
+        renderBracketManager();
       };
-      cont.appendChild(div);
+
+      div.appendChild(wL);
+      document.getElementById('bracketManager').appendChild(div);
     });
     return;
   }
+
 
   // FINAL
   if (phase === 'FINAL') {
@@ -780,8 +969,13 @@ function renderBracketManager() {
       div.innerHTML = `<h3>${m.id}</h3>`;
       const names = m.participants.map(pid => {
         const d = state.drivers.find(x => x.id === pid);
-        return d ? d.name : 'TBD';
+        // look up the rig we assigned in this match
+        const rig = m.rigAssignments?.[pid] || '–';
+        return d
+          ? `${d.name} (Rig ${rig})`
+          : `TBD (Rig ${rig})`;
       });
+
       const p = document.createElement('p');
       p.className = 'match-participants';
       p.textContent = names.join(' vs ');
@@ -816,11 +1010,17 @@ function renderBracketManager() {
       };
       rS.onchange = () => {
         m.runnerUp = +rS.value || null;
-        // bronze is the remaining ID
+        saveState();
+        // compute the three podium spots
         const [a, b, c] = m.participants;
-        const podium = [m.winner, m.runnerUp, [a, b, c].find(x => x !== m.winner && x !== m.runnerUp)];
-        alert(`🥇 ${state.drivers.find(d => d.id === podium[0]).name}\n🥈 ${state.drivers.find(d => d.id === podium[1]).name}\n🥉 ${state.drivers.find(d => d.id === podium[2]).name}`);
+        const first = m.winner;
+        const second = m.runnerUp;
+        const third = [a, b, c].find(x => x !== first && x !== second);
+
+        // show our fancy podium ceremony instead of alert
+        showPodiumCeremony(first, second, third);
       };
+
       cont.appendChild(div);
     });
   }
@@ -828,29 +1028,76 @@ function renderBracketManager() {
 
 // ---------- Evaluate QF Duels ----------
 function evaluateQFDuels() {
-  const qf = state.matches.filter(m => m.phase === 'QF');
-  for (const m of qf) {
+
+  // — bail out if QF‑Duels already have rigs assigned —
+  const duel1 = state.matches.find(m => m.id === 'QF_DUEL1');
+  if (
+    duel1 &&
+    duel1.rigAssignments &&
+    Object.keys(duel1.rigAssignments).length > 0
+  ) {
+    showMessage('✅ QF Duels already evaluated - Rigs Locked.');
+    return;
+  }
+
+  // 1) Validate all QF heats have a winner, runner‑up & RU time
+  const qfMatches = state.matches.filter(m => m.phase === 'QF');
+  for (const m of qfMatches) {
     if (!m.winner || !m.runnerUp || !m.ruTimeRaw) {
       return alert(`Fill Winner, Runner-Up & RU Time for ${m.id}`);
     }
   }
-  // slot QF winners → SF
-  qf.forEach(m => {
-    const sf = (m.heat === 1 || m.heat === 4) ? 'SF1' : 'SF2';
-    slotToMatch(sf, m.winner);
-  });
-  // collect RU times
-  const rus = qf.map(m => ({
-    id: m.runnerUp,
-    time: parseTimeString(m.ruTimeRaw)
-  })).sort((a, b) => a.time - b.time);
-  // Duel A: fastest vs slowest
-  slotToMatch('QF_DUEL1', rus[0].id);
-  slotToMatch('QF_DUEL1', rus[rus.length - 1].id);
-  // Duel B: middle two
-  slotToMatch('QF_DUEL2', rus[1].id);
-  slotToMatch('QF_DUEL2', rus[2].id);
 
+  // 2) Slot QF winners into Semis
+  qfMatches.forEach(m => {
+    const targetSF = (m.heat === 1 || m.heat === 4) ? 'SF1' : 'SF2';
+    slotToMatch(targetSF, m.winner);
+  });
+
+  // 3) Collect & sort runner‑ups by their RU time
+  const sortedRUs = qfMatches
+    .map(m => ({ id: m.runnerUp, time: parseTimeString(m.ruTimeRaw) }))
+    .sort((a, b) => a.time - b.time)
+    .map(x => x.id);
+
+  // 4) Slot fastest/slower into the two Duels
+  slotToMatch('QF_DUEL1', sortedRUs[0]);
+  slotToMatch('QF_DUEL1', sortedRUs[sortedRUs.length - 1]);
+  slotToMatch('QF_DUEL2', sortedRUs[1]);
+  slotToMatch('QF_DUEL2', sortedRUs[2]);
+
+  // 5) NOW assign cockpits for each Duel match
+  state.matches
+    .filter(m => m.phase === 'QF_DUEL')
+    .forEach(match => {
+      match.rigAssignments = {};        // reset in case
+      const taken = new Set();
+
+      match.participants.forEach(pid => {
+        const driver = state.drivers.find(d => d.id === pid);
+        // compute next after lastRig
+        let idx = driver.lastRig
+          ? (cockpits.indexOf(driver.lastRig) + 1) % cockpits.length
+          : 0;
+        let rig = cockpits[idx];
+
+        // bump until free
+        while (taken.has(rig)) {
+          idx = (idx + 1) % cockpits.length;
+          rig = cockpits[idx];
+        }
+
+        // record it
+        match.rigAssignments[pid] = rig;
+        taken.add(rig);
+
+        // update driver for next phase
+        driver.lastRig = rig;
+        driver.sessionCount = (driver.sessionCount || 4) + 1;
+      });
+    });
+
+  // 6) Save & re‑render Duels
   saveState();
   document.getElementById('bracketPhase').value = 'QF_DUEL';
   renderBracketManager();
@@ -916,6 +1163,21 @@ function scheduleAlignedBackups() {
     // …then every 10 minutes on the quarter
     setInterval(autoBackup, 10 * 60 * 1000);
   }, initialDelay);
+}
+
+function showPodiumCeremony(winnerId, runnerUpId, thirdId) {
+  const first = state.drivers.find(d => d.id === winnerId)?.name || 'TBD';
+  const second = state.drivers.find(d => d.id === runnerUpId)?.name || 'TBD';
+  const third = state.drivers.find(d => d.id === thirdId)?.name || 'TBD';
+
+  document.getElementById('podium-first').textContent = first;
+  document.getElementById('podium-second').textContent = second;
+  document.getElementById('podium-third').textContent = third;
+
+  const pod = document.getElementById('podium');
+  pod.classList.remove('hidden');
+  // trigger fade‑in
+  setTimeout(() => pod.classList.add('visible'), 50);
 }
 
 
