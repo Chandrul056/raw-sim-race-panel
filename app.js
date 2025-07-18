@@ -1180,15 +1180,32 @@ function evaluateQFDuel() {
 }
 
 function evaluateSFHeats() {
+  // 1) Handle each semi-final heat in turn
   state.matches
     .filter(m => m.phase === 'SF')
     .forEach(m => {
-      slotToMatch('FINAL', m.winner);
+      // slot winners into Final and runner-ups into SF_DUEL1
+      slotToMatch('FINAL',    m.winner);
       slotToMatch('SF_DUEL1', m.runnerUp);
-      assignRigsForMatch(state.matches.find(x => x.id === 'SF_DUEL1'));
+
+      // **assign rigs for THIS SF heat** and bump each driver.lastRig
+      assignRigsForMatch(m);
     });
+
+  // 2) Only once both runner-ups are in SF_DUEL1, assign that duel its rigs
+  const sfDuel = state.matches.find(m => m.phase === 'SF_DUEL');
+  if (sfDuel && sfDuel.participants.length === 2) {
+    assignRigsForMatch(sfDuel);
+  }
+
   saveState();
+
+  // 3) Move you on to the duel view
+  document.getElementById('bracketPhase').value = 'SF_DUEL';
+  renderBracketManager();
+  showMessage('✅ SF Heats Evaluated');
 }
+
 
 function evaluateSFDuel() {
   const duel = state.matches.find(m => m.phase === 'SF_DUEL');
@@ -1221,82 +1238,82 @@ function makeDoneLabel(name) {
 
 
 // ---------- Evaluate QF Duels ----------
-// function evaluateQFDuels() {
+function evaluateQFDuels() {
 
-//   // — bail out if QF‑Duels already have rigs assigned —
-//   const duel1 = state.matches.find(m => m.id === 'QF_DUEL1');
-//   if (
-//     duel1 &&
-//     duel1.rigAssignments &&
-//     Object.keys(duel1.rigAssignments).length > 0
-//   ) {
-//     showMessage('✅ QF Duels already evaluated - Rigs Locked.');
-//     return;
-//   }
+  // — bail out if QF‑Duels already have rigs assigned —
+  const duel1 = state.matches.find(m => m.id === 'QF_DUEL1');
+  if (
+    duel1 &&
+    duel1.rigAssignments &&
+    Object.keys(duel1.rigAssignments).length > 0
+  ) {
+    showMessage('✅ QF Duels already evaluated - Rigs Locked.');
+    return;
+  }
 
-//   // 1) Validate all QF heats have a winner, runner‑up & RU time
-//   const qfMatches = state.matches.filter(m => m.phase === 'QF');
-//   for (const m of qfMatches) {
-//     if (!m.winner || !m.runnerUp || !m.ruTimeRaw) {
-//       return alert(`Fill Winner, Runner-Up & RU Time for ${m.id}`);
-//     }
-//   }
+  // 1) Validate all QF heats have a winner, runner‑up & RU time
+  const qfMatches = state.matches.filter(m => m.phase === 'QF');
+  for (const m of qfMatches) {
+    if (!m.winner || !m.runnerUp || !m.ruTimeRaw) {
+      return alert(`Fill Winner, Runner-Up & RU Time for ${m.id}`);
+    }
+  }
 
-//   // 2) Slot QF winners into Semis
-//   qfMatches.forEach(m => {
-//     const targetSF = (m.heat === 1 || m.heat === 4) ? 'SF1' : 'SF2';
-//     slotToMatch(targetSF, m.winner);
-//   });
+  // 2) Slot QF winners into Semis
+  qfMatches.forEach(m => {
+    const targetSF = (m.heat === 1 || m.heat === 4) ? 'SF1' : 'SF2';
+    slotToMatch(targetSF, m.winner);
+  });
 
-//   // 3) Collect & sort runner‑ups by their RU time
-//   const sortedRUs = qfMatches
-//     .map(m => ({ id: m.runnerUp, time: parseTimeString(m.ruTimeRaw) }))
-//     .sort((a, b) => a.time - b.time)
-//     .map(x => x.id);
+  // 3) Collect & sort runner‑ups by their RU time
+  const sortedRUs = qfMatches
+    .map(m => ({ id: m.runnerUp, time: parseTimeString(m.ruTimeRaw) }))
+    .sort((a, b) => a.time - b.time)
+    .map(x => x.id);
 
-//   // 4) Slot fastest/slower into the two Duels
-//   slotToMatch('QF_DUEL1', sortedRUs[0]);
-//   slotToMatch('QF_DUEL1', sortedRUs[sortedRUs.length - 1]);
-//   slotToMatch('QF_DUEL2', sortedRUs[1]);
-//   slotToMatch('QF_DUEL2', sortedRUs[2]);
+  // 4) Slot fastest/slower into the two Duels
+  slotToMatch('QF_DUEL1', sortedRUs[0]);
+  slotToMatch('QF_DUEL1', sortedRUs[sortedRUs.length - 1]);
+  slotToMatch('QF_DUEL2', sortedRUs[1]);
+  slotToMatch('QF_DUEL2', sortedRUs[2]);
 
-//   // 5) NOW assign cockpits for each Duel match
-//   state.matches
-//     .filter(m => m.phase === 'QF_DUEL')
-//     .forEach(match => {
-//       match.rigAssignments = {};        // reset in case
-//       const taken = new Set();
+  // 5) NOW assign cockpits for each Duel match
+  state.matches
+    .filter(m => m.phase === 'QF_DUEL')
+    .forEach(match => {
+      match.rigAssignments = {};        // reset in case
+      const taken = new Set();
 
-//       match.participants.forEach(pid => {
-//         const driver = state.drivers.find(d => d.id === pid);
-//         // compute next after lastRig
-//         let idx = driver.lastRig
-//           ? (cockpits.indexOf(driver.lastRig) + 1) % cockpits.length
-//           : 0;
-//         let rig = cockpits[idx];
+      match.participants.forEach(pid => {
+        const driver = state.drivers.find(d => d.id === pid);
+        // compute next after lastRig
+        let idx = driver.lastRig
+          ? (cockpits.indexOf(driver.lastRig) + 1) % cockpits.length
+          : 0;
+        let rig = cockpits[idx];
 
-//         // bump until free
-//         while (taken.has(rig)) {
-//           idx = (idx + 1) % cockpits.length;
-//           rig = cockpits[idx];
-//         }
+        // bump until free
+        while (taken.has(rig)) {
+          idx = (idx + 1) % cockpits.length;
+          rig = cockpits[idx];
+        }
 
-//         // record it
-//         match.rigAssignments[pid] = rig;
-//         taken.add(rig);
+        // record it
+        match.rigAssignments[pid] = rig;
+        taken.add(rig);
 
-//         // update driver for next phase
-//         driver.lastRig = rig;
-//         driver.sessionCount = (driver.sessionCount || 4) + 1;
-//       });
-//     });
+        // update driver for next phase
+        driver.lastRig = rig;
+        driver.sessionCount = (driver.sessionCount || 4) + 1;
+      });
+    });
 
-//   // 6) Save & re‑render Duels
-//   saveState();
-//   document.getElementById('bracketPhase').value = 'QF_DUEL';
-//   renderBracketManager();
-//   showMessage('✅ QF Duels evaluated');
-// }
+  // 6) Save & re‑render Duels
+  saveState();
+  document.getElementById('bracketPhase').value = 'QF_DUEL';
+  renderBracketManager();
+  showMessage('✅ QF Duels evaluated');
+}
 
 // ---------- Slot Helper ----------
 function slotToMatch(matchId, pid) {
