@@ -395,10 +395,11 @@ button:disabled:hover,
   }
 }
 
+/* make podium a vertical stack */
 .podium {
   display: flex;
-  justify-content: center;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: center;
   gap: 1rem;
   margin: 2rem 0;
   opacity: 0;
@@ -411,8 +412,17 @@ button:disabled:hover,
   transform: translateY(0);
 }
 
+/* keep the three tiers in one row */
+.podium-places {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+/* tier styling stays the same */
 .podium-tier {
-  width: 250px;
+  width: 200px;
   padding: 0.5rem;
   border-radius: 4px;
   color: #fff;
@@ -441,4 +451,15 @@ button:disabled:hover,
 .podium-tier .driver-name {
   margin-top: 0.3rem;
   font-size: 1rem;
+}
+
+/* style the fastest‑of‑day bar beneath */
+.fastest-of-day {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-align: center;
 }

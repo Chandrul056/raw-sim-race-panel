@@ -31,6 +31,17 @@ function formatGap(ms) {
   return '+' + (ms / 1000).toFixed(3);
 }
 
+function computeDayBest() {
+  const arr = state.drivers.map(d => {
+    const times = [d.q1Best, d.q2Best, d.q3Best].filter(t => t != null);
+    const bestMs = times.length ? Math.min(...times) : null;
+    return { name: d.name, bestMs };
+  }).filter(x => x.bestMs != null)
+    .sort((a, b) => a.bestMs - b.bestMs);
+
+  return arr[0]; // the fastest driver
+}
+
 /**
  * Assigns A→B→C cockpits to one match, based on each driver.lastRig,
  * bumping on conflicts so everyone in that match has a unique seat.
@@ -814,11 +825,12 @@ function renderBracketManager() {
       btn.classList.add('btn');
       btn.textContent = '▶️ Evaluate QF Heats';
       btn.disabled = mset.some(m => !m.winner || !m.runnerUp || !m.ruTimeRaw);
-      btn.onclick = () => { 
+      btn.onclick = () => {
         evaluateQFDuels();
         showMessage('✅ QF Heats Evaluated');
         document.getElementById('bracketPhase').value = 'QF_DUEL';
-        renderBracketManager(); };
+        renderBracketManager();
+      };
       cont.appendChild(wrapButton(btn));
     } else {
       cont.appendChild(makeDoneLabel('QF Heats'));
@@ -965,10 +977,12 @@ function renderBracketManager() {
         .filter(x => x.phase === 'SF')
         .some(m => !m.winner || !m.runnerUp);
 
-      btn.onclick = () => { evaluateSFHeats(); 
+      btn.onclick = () => {
+        evaluateSFHeats();
         document.getElementById('bracketPhase').value = 'SF_DUEL';
         showMessage('✅ SF Heats Evaluated');
-        renderBracketManager(); };
+        renderBracketManager();
+      };
       cont.appendChild(wrapButton(btn));
     } else {
       cont.appendChild(makeDoneLabel('SF Heats'));
@@ -1185,7 +1199,7 @@ function evaluateSFHeats() {
     .filter(m => m.phase === 'SF')
     .forEach(m => {
       // slot winners into Final and runner-ups into SF_DUEL1
-      slotToMatch('FINAL',    m.winner);
+      slotToMatch('FINAL', m.winner);
       slotToMatch('SF_DUEL1', m.runnerUp);
 
       // **assign rigs for THIS SF heat** and bump each driver.lastRig
@@ -1385,6 +1399,16 @@ function showPodiumCeremony(winnerId, runnerUpId, thirdId) {
   document.getElementById('podium-second').textContent = second;
   document.getElementById('podium-third').textContent = third;
 
+  // compute & display the day’s fastest
+  const leader = computeDayBest();  // your helper that returns { name, bestMs }
+  const fastEl = document.getElementById('fastest-of-day');
+  if (leader) {
+    fastEl.textContent =
+      `🏎️ Fastest Driver of the Day: ${leader.name} (${formatTime(leader.bestMs)})`;
+  } else {
+    fastEl.textContent = '';
+  }
+
   const pod = document.getElementById('podium');
   pod.classList.remove('hidden');
   // trigger fade‑in
@@ -1400,3 +1424,141 @@ function renderAll() {
 }
 renderAll();
 scheduleAlignedBackups();
+
+// Helper: load an <img> into a base64 string
+function loadImageAsDataURL(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      c.getContext('2d').drawImage(img, 0, 0);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.src = url;
+  });
+}
+
+// Compute each driver’s absolute best among Q1/Q2/Q3
+function getDriversBestSorted() {
+  const arr = state.drivers.map(d => {
+    // gather all valid times
+    const times = [d.q1Best, d.q2Best, d.q3Best].filter(t => t != null);
+    const bestMs = times.length ? Math.min(...times) : null;
+    return { name: d.name, bestMs };
+  })
+    // drop anyone with no valid time, sort ascending
+    .filter(x => x.bestMs != null)
+    .sort((a, b) => a.bestMs - b.bestMs);
+  return arr;
+}
+
+// Main: build & download the PDF
+async function generateReportPDF() {
+  const { jsPDF } = window.jspdf;
+  // 1. Create a true A4‑landscape doc in “points” so we have plenty of room
+  const doc = new jsPDF({
+    unit: 'pt',
+    format: 'a4',
+    orientation: 'portrait'
+  });
+
+  // 2. Draw the RAW logo at top‑left (40pt margin)
+  // const logoEl = document.querySelector('.raw-logo');
+  // if (logoEl) {
+  //   const imgData = await loadImageAsDataURL(logoEl.src);
+  //   doc.addImage(imgData, 'PNG', 40, 30, 60, 0);
+  // }
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // 1) Centered Title
+  doc.setFontSize(20);
+  doc.text(
+    'RAW F1 Tournament - Spa-Francorchamps Sim-Race Report',
+    pageWidth / 2,
+    60,
+    {
+      align: 'center',
+      fontStyle: 'bold'
+    }
+  );
+
+  // 4. Build table data
+  const data = getDriversBestSorted(); // as before
+  const leaderTime = data.length ? data[0].bestMs : 0;
+  const body = data.map((d, i) => [
+    i + 1,
+    d.name,
+    formatTime(d.bestMs),
+    '+' + formatTime(d.bestMs - leaderTime)
+  ]);
+
+  // Compute margins and total table width
+  const margin = { left: 40, right: 40, bottom: 40 };
+  const tableWidth = pageWidth - margin.left - margin.right;
+
+  // Assign column widths (in points)
+  const col0 = 24;   // “#”
+  const col2 = 60;  // “Best Lap”
+  const col3 = 60;  // “Gap”
+  const col1 = tableWidth - col0 - col2 - col3; // “Driver” fills the rest
+
+  // 5. AutoTable: single‑page layout
+  doc.autoTable({
+    startY: 80,
+    margin,
+    tableWidth,
+    head: [['#', 'Driver', 'Best Lap', 'Gap']],
+    body,
+    theme: 'grid',
+    styles: {
+      fontSize: 8,
+      cellPadding: 4,
+      overflow: 'linebreak'
+    },
+    headStyles: {
+      fillColor: [21, 101, 192],
+      textColor: 255,
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { cellWidth: col0, halign: 'center' },
+      1: { cellWidth: col1, halign: 'left' },
+      2: { cellWidth: col2, halign: 'center' },
+      3: { cellWidth: col3, halign: 'center' }
+    },
+    pageBreak: 'avoid'
+  });
+
+  // 6. Footer
+  doc.setFontSize(8);
+  doc.text(
+    '© 2025 Race At Will',
+    40,
+    doc.internal.pageSize.getHeight() - 30
+  );
+
+  // 7. Save
+  doc.save('RAW_F1_Tournament_SpaSimRace_Report.pdf');
+}
+
+// hook it up
+document
+  .getElementById('downloadReportBtn')
+  .addEventListener('click', generateReportPDF);
+
+
+// hook it up
+document
+  .getElementById('downloadReportBtn')
+  .addEventListener('click', generateReportPDF);
+
+
+// wire the button
+document
+  .getElementById('downloadReportBtn')
+  .addEventListener('click', generateReportPDF);
