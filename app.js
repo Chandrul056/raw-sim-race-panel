@@ -697,40 +697,54 @@ function renderQ3() {
 
 // ---------- 6. Bracket Manager ----------
 document.getElementById('bracketPhase').onchange = renderBracketManager;
+
+// ————————————————————
+// 1) Bracket Manager UI
+// ————————————————————
 function renderBracketManager() {
   const phase = document.getElementById('bracketPhase').value;
   const cont = document.getElementById('bracketManager');
   cont.innerHTML = '';
+
+  // all matches in this phase
   const mset = state.matches.filter(m => m.phase === phase);
   if (!mset.length) {
     cont.textContent = 'No matches in this phase.';
     return;
   }
 
+  // helper: render each heat
+  function renderHeat(m) {
+    const div = document.createElement('div');
+    div.className = 'bracket-heat';
+    div.innerHTML = `<h3>${m.id}</h3>`;
+
+    // participants line
+    const names = m.participants.map(pid => {
+      const d = state.drivers.find(x => x.id === pid);
+      const rig = m.rigAssignments?.[pid] || '–';
+      return d ? `${d.name} (Rig ${rig})` : `TBD (Rig ${rig})`;
+    }).join(' vs ');
+    const p = document.createElement('p');
+    p.className = 'match-participants';
+    p.textContent = names;
+    div.appendChild(p);
+
+    return div;
+  }
+
+  // ───────────────────────────────────────
+  // Phase = QF → Winner + RunnerUp + RUTime
+  // ───────────────────────────────────────
   if (phase === 'QF') {
     mset.forEach(m => {
-      const div = document.createElement('div');
-      div.className = 'bracket-heat';
-      div.innerHTML = `<h3>${m.id}</h3>`;
-      // seeds
-      const names = m.participants.map(pid => {
-        const d = state.drivers.find(x => x.id === pid);
-        // look up the rig we assigned in this match
-        const rig = m.rigAssignments?.[pid] || '–';
-        return d
-          ? `${d.name} (Rig ${rig})`
-          : `TBD (Rig ${rig})`;
-      });
+      const div = renderHeat(m);
 
-      const p = document.createElement('p');
-      p.className = 'match-participants';
-      p.textContent = names.join(' vs ');
-      div.appendChild(p);
-      // winner
+      // Winner select
       const wL = document.createElement('label');
-      wL.textContent = 'Winner: ';
+      wL.textContent = 'Winner: ';
       const wS = document.createElement('select');
-      wS.innerHTML = '<option>–</option>';
+      wS.innerHTML = '<option value="">–</option>';
       m.participants.forEach(pid => {
         const d = state.drivers.find(x => x.id === pid);
         if (d) wS.add(new Option(d.name, pid));
@@ -738,11 +752,12 @@ function renderBracketManager() {
       wS.value = m.winner || '';
       wL.appendChild(wS);
       div.appendChild(wL);
-      // runnerUp
+
+      // Runner-Up select
       const rL = document.createElement('label');
-      rL.textContent = 'Runner-Up: ';
+      rL.textContent = 'Runner‑Up: ';
       const rS = document.createElement('select');
-      rS.innerHTML = '<option>–</option>';
+      rS.innerHTML = '<option value="">–</option>';
       m.participants.forEach(pid => {
         const d = state.drivers.find(x => x.id === pid);
         if (d) rS.add(new Option(d.name, pid));
@@ -750,184 +765,93 @@ function renderBracketManager() {
       rS.value = m.runnerUp || '';
       rL.appendChild(rS);
       div.appendChild(rL);
-      // RU time
+
+
+      // enforce mutual exclusion in the render step:
+      if (m.runnerUp) {
+        Array.from(wS.options).forEach(opt => opt.disabled = (opt.value === String(m.runnerUp)));
+      }
+      if (m.winner) {
+        Array.from(rS.options).forEach(opt => opt.disabled = (opt.value === String(m.winner)));
+      }
+
+      // RU Time input
       const tL = document.createElement('label');
-      tL.textContent = 'RU Time: ';
+      tL.textContent = 'RU Time: ';
       const tI = document.createElement('input');
-      tI.type = 'text'; tI.placeholder = 'm:ss:ms'; tI.value = m.ruTimeRaw || '';
+      tI.type = 'text';
+      tI.placeholder = 'm:ss:ms or DNF';
+      tI.value = m.ruTimeRaw || '';
       tI.onchange = () => {
         m.ruTimeRaw = tI.value.trim();
         saveState();
+        renderBracketManager();
       };
       tL.appendChild(tI);
       div.appendChild(tL);
 
-      // change handlers
+      // on-change handlers (disable opposite pick)
       wS.onchange = () => {
         m.winner = +wS.value || null;
         Array.from(rS.options).forEach(o => o.disabled = (o.value === wS.value));
         saveState();
+        renderBracketManager();
       };
       rS.onchange = () => {
         m.runnerUp = +rS.value || null;
-        saveState();
-      };
-
-      cont.appendChild(div);
-    });
-    // create the button just like your other .btns
-    const btn = document.createElement('button');
-    btn.classList.add('btn');
-    btn.textContent = 'Evaluate QF Duels';
-    btn.onclick = evaluateQFDuels;
-
-    // wrap it in a .button-group for consistent width & spacing
-    const wrapper = document.createElement('div');
-    wrapper.className = 'button-group';
-    wrapper.appendChild(btn);
-
-    // append the wrapper instead of the raw button
-    cont.appendChild(wrapper);
-    return;
-
-  }
-
-  // QF DUEL
-  if (phase === 'QF_DUEL') {
-    mset.forEach(m => {
-      const div = document.createElement('div');
-      div.className = 'bracket-heat';
-      div.innerHTML = `<h3>${m.id}</h3>`;
-      const names = m.participants.map(pid => {
-        const d = state.drivers.find(x => x.id === pid);
-        // look up the rig we assigned in this match
-        const rig = m.rigAssignments?.[pid] || '–';
-        return d
-          ? `${d.name} (Rig ${rig})`
-          : `TBD (Rig ${rig})`;
-      });
-
-      const p = document.createElement('p');
-      p.className = 'match-participants';
-      p.textContent = names.join(' vs ');
-      div.appendChild(p);
-      const wL = document.createElement('label');
-      wL.textContent = 'Winner: ';
-      const wS = document.createElement('select');
-      wS.innerHTML = '<option>–</option>';
-      m.participants.forEach(pid => {
-        const d = state.drivers.find(x => x.id === pid);
-        if (d) wS.add(new Option(d.name, pid));
-      });
-      wS.value = m.winner || '';
-      wL.appendChild(wS); div.appendChild(wL);
-      wS.onchange = () => {
-        m.winner = +wS.value || null;
-        // 1) slot into SF1 or SF2
-        const targetSF = (m.heat === 1 ? 'SF1' : 'SF2');
-        slotToMatch(targetSF, m.winner);
-
-        // 2) assign rigs for that SF match immediately
-        const sfMatch = state.matches.find(x => x.id === targetSF);
-        if (sfMatch && sfMatch.participants.length > 0) {
-          assignRigsForMatch(sfMatch);
-        }
-
+        Array.from(wS.options).forEach(o => o.disabled = (o.value === rS.value));
         saveState();
         renderBracketManager();
       };
 
       cont.appendChild(div);
     });
+
+    // QF Duels auto‑populated? (we check presence of any QF_DUEL participants)
+    const qfDuelsDone = state.matches.some(x => x.phase === 'QF_DUEL' && x.participants.length);
+    if (!qfDuelsDone) {
+      const btn = document.createElement('button');
+      btn.classList.add('btn');
+      btn.textContent = '▶️ Evaluate QF Heats';
+      btn.disabled = mset.some(m => !m.winner || !m.runnerUp || !m.ruTimeRaw);
+      btn.onclick = () => { 
+        evaluateQFDuels();
+        showMessage('✅ QF Heats Evaluated');
+        document.getElementById('bracketPhase').value = 'QF_DUEL';
+        renderBracketManager(); };
+      cont.appendChild(wrapButton(btn));
+    } else {
+      cont.appendChild(makeDoneLabel('QF Heats'));
+    }
     return;
   }
 
-  // SF
-  if (phase === 'SF') {
+  // ───────────────────────────────────────
+  // Phase = QF_DUEL → Winner only + one‑shot button
+  // ───────────────────────────────────────
+  if (phase === 'QF_DUEL') {
+    // 1) Render both duel heats exactly as before
     mset.forEach(m => {
       const div = document.createElement('div');
       div.className = 'bracket-heat';
       div.innerHTML = `<h3>${m.id}</h3>`;
+
+      // participants
       const names = m.participants.map(pid => {
         const d = state.drivers.find(x => x.id === pid);
-        // look up the rig we assigned in this match
         const rig = m.rigAssignments?.[pid] || '–';
-        return d
-          ? `${d.name} (Rig ${rig})`
-          : `TBD (Rig ${rig})`;
-      });
-
+        return d ? `${d.name} (Rig ${rig})` : `TBD (Rig ${rig})`;
+      }).join(' vs ');
       const p = document.createElement('p');
       p.className = 'match-participants';
-      p.textContent = names.join(' vs ');
+      p.textContent = names;
       div.appendChild(p);
-      // winner
-      const wL = document.createElement('label');
-      wL.textContent = 'Winner: ';
-      const wS = document.createElement('select');
-      wS.innerHTML = '<option>–</option>';
-      m.participants.forEach(pid => {
-        const d = state.drivers.find(x => x.id === pid);
-        if (d) wS.add(new Option(d.name, pid));
-      });
-      wS.value = m.winner || '';
-      wL.appendChild(wS); div.appendChild(wL);
-      // runnerUp
-      const rL = document.createElement('label');
-      rL.textContent = 'Runner-Up: ';
-      const rS = document.createElement('select');
-      rS.innerHTML = '<option>–</option>';
-      m.participants.forEach(pid => {
-        const d = state.drivers.find(x => x.id === pid);
-        if (d) rS.add(new Option(d.name, pid));
-      });
-      rS.value = m.runnerUp || '';
-      rL.appendChild(rS); div.appendChild(rL);
-      // handlers
-      wS.onchange = () => {
-        m.winner = +wS.value || null;
-        Array.from(rS.options).forEach(o => o.disabled = (o.value === wS.value));
-        saveState();
-      };
-      rS.onchange = () => {
-        m.runnerUp = +rS.value || null;
-        slotToMatch('FINAL', m.winner);
-        slotToMatch('SF_DUEL1', m.runnerUp);
-        // Assign cockpits to that Duel match right away
-        const sfDuel = state.matches.find(x => x.id === 'SF_DUEL1');
-        if (sfDuel && sfDuel.participants.length === 2) {
-          assignRigsForMatch(sfDuel);
-        }
-        saveState(); renderBracketManager();
-      };
-      cont.appendChild(div);
-    });
-    return;
-  }
 
-  // SF_DUEL
-  if (phase === 'SF_DUEL') {
-    mset.forEach(m => {
-      const div = document.createElement('div');
-      div.className = 'bracket-heat';
-      div.innerHTML = `<h3>${m.id}</h3>`;
-      const names = m.participants.map(pid => {
-        const d = state.drivers.find(x => x.id === pid);
-        // look up the rig we assigned in this match
-        const rig = m.rigAssignments?.[pid] || '–';
-        return d
-          ? `${d.name} (Rig ${rig})`
-          : `TBD (Rig ${rig})`;
-      });
-      const p = document.createElement('p');
-      p.className = 'match-participants';
-      p.textContent = names.join(' vs ');
-      div.appendChild(p);
-      // Winner selector
+      // Winner select
       const wL = document.createElement('label');
-      wL.textContent = 'Winner: ';
+      wL.textContent = 'Winner: ';
       const wS = document.createElement('select');
-      wS.innerHTML = '<option>–</option>';
+      wS.innerHTML = '<option value="">–</option>';
       m.participants.forEach(pid => {
         const d = state.drivers.find(x => x.id === pid);
         if (d) wS.add(new Option(d.name, pid));
@@ -936,173 +860,443 @@ function renderBracketManager() {
       wL.appendChild(wS);
       div.appendChild(wL);
 
-      // When you pick the SF_DUEL winner:
       wS.onchange = () => {
         m.winner = +wS.value || null;
-
-        // 1) Slot into the Final
-        slotToMatch('FINAL', m.winner);
-
-        // 2) Assign rigs for the Final match
-        const finalMatch = state.matches.find(x => x.id === 'FINAL');
-        if (finalMatch && finalMatch.participants.length > 0) {
-          assignRigsForMatch(finalMatch);
-        }
-
-        // 3) Persist and re-render
         saveState();
         renderBracketManager();
       };
 
-      div.appendChild(wL);
-      document.getElementById('bracketManager').appendChild(div);
+      cont.appendChild(div);
     });
+
+    // 2) Decide if "Evaluate QF Duel" has *really* been done
+    //    We know it's done when *both* SF heats now have 3 participants
+    const sfHeats = state.matches.filter(m => m.phase === 'SF');
+    const duelDone = sfHeats.every(m => m.participants.length === 3);
+
+    if (!duelDone) {
+      const btn = document.createElement('button');
+      btn.classList.add('btn');
+      btn.textContent = '▶️ Evaluate QF Duel';
+      // only enable once both duels have a winner
+      btn.disabled = mset.some(m => !m.winner);
+      btn.onclick = () => {
+        evaluateQFDuel();    // your existing function that slots duel winners → SF
+        showMessage('✅ QF Duel Evaluated');
+        document.getElementById('bracketPhase').value = 'SF';
+        renderBracketManager();
+      };
+      cont.appendChild(wrapButton(btn));
+    } else {
+      // show a green "done" label instead of a button
+      cont.appendChild(makeDoneLabel('QF Duel'));
+    }
+
     return;
   }
 
 
-  // FINAL
-  if (phase === 'FINAL') {
+  // ───────────────────────────────────────
+  // Phase = SF → Winner + RunnerUp
+  // ───────────────────────────────────────
+  if (phase === 'SF') {
     mset.forEach(m => {
-      const div = document.createElement('div');
-      div.className = 'bracket-heat';
-      div.innerHTML = `<h3>${m.id}</h3>`;
-      const names = m.participants.map(pid => {
-        const d = state.drivers.find(x => x.id === pid);
-        // look up the rig we assigned in this match
-        const rig = m.rigAssignments?.[pid] || '–';
-        return d
-          ? `${d.name} (Rig ${rig})`
-          : `TBD (Rig ${rig})`;
-      });
+      const div = renderHeat(m);
 
-      const p = document.createElement('p');
-      p.className = 'match-participants';
-      p.textContent = names.join(' vs ');
-      div.appendChild(p);
       // Winner
       const wL = document.createElement('label');
-      wL.textContent = 'Winner: ';
+      wL.textContent = 'Winner: ';
       const wS = document.createElement('select');
-      wS.innerHTML = '<option>–</option>';
+      wS.innerHTML = '<option value="">–</option>';
       m.participants.forEach(pid => {
         const d = state.drivers.find(x => x.id === pid);
         if (d) wS.add(new Option(d.name, pid));
       });
       wS.value = m.winner || '';
-      wL.appendChild(wS); div.appendChild(wL);
-      // RunnerUp
+      wL.appendChild(wS);
+      div.appendChild(wL);
+
+      // Runner‑Up
       const rL = document.createElement('label');
-      rL.textContent = 'Runner-Up: ';
+      rL.textContent = 'Runner‑Up: ';
       const rS = document.createElement('select');
-      rS.innerHTML = '<option>–</option>';
+      rS.innerHTML = '<option value="">–</option>';
       m.participants.forEach(pid => {
         const d = state.drivers.find(x => x.id === pid);
         if (d) rS.add(new Option(d.name, pid));
       });
       rS.value = m.runnerUp || '';
-      rL.appendChild(rS); div.appendChild(rL);
-      // handlers
+      rL.appendChild(rS);
+      div.appendChild(rL);
+
+
+      // enforce mutual exclusion in the render step:
+      if (m.runnerUp) {
+        Array.from(wS.options).forEach(opt => opt.disabled = (opt.value === String(m.runnerUp)));
+      }
+      if (m.winner) {
+        Array.from(rS.options).forEach(opt => opt.disabled = (opt.value === String(m.winner)));
+      }
+
+
       wS.onchange = () => {
         m.winner = +wS.value || null;
         Array.from(rS.options).forEach(o => o.disabled = (o.value === wS.value));
         saveState();
+        renderBracketManager();
       };
       rS.onchange = () => {
         m.runnerUp = +rS.value || null;
+        Array.from(wS.options).forEach(o => o.disabled = (o.value === rS.value));
         saveState();
-        // compute the three podium spots
-        const [a, b, c] = m.participants;
-        const first = m.winner;
-        const second = m.runnerUp;
-        const third = [a, b, c].find(x => x !== first && x !== second);
-
-        // show our fancy podium ceremony instead of alert
-        showPodiumCeremony(first, second, third);
+        renderBracketManager();
       };
 
       cont.appendChild(div);
     });
-  }
-}
 
-// ---------- Evaluate QF Duels ----------
-function evaluateQFDuels() {
+    // SF Runner‑Up Duel auto?
+    const sfDuelDone = state.matches.some(x => x.phase === 'SF_DUEL' && x.participants.length);
+    if (!sfDuelDone) {
+      const btn = document.createElement('button');
+      btn.classList.add('btn');
+      btn.textContent = '▶️ Evaluate SF Heats';
+      btn.disabled = state.matches
+        .filter(x => x.phase === 'SF')
+        .some(m => !m.winner || !m.runnerUp);
 
-  // — bail out if QF‑Duels already have rigs assigned —
-  const duel1 = state.matches.find(m => m.id === 'QF_DUEL1');
-  if (
-    duel1 &&
-    duel1.rigAssignments &&
-    Object.keys(duel1.rigAssignments).length > 0
-  ) {
-    showMessage('✅ QF Duels already evaluated - Rigs Locked.');
+      btn.onclick = () => { evaluateSFHeats(); 
+        document.getElementById('bracketPhase').value = 'SF_DUEL';
+        showMessage('✅ SF Heats Evaluated');
+        renderBracketManager(); };
+      cont.appendChild(wrapButton(btn));
+    } else {
+      cont.appendChild(makeDoneLabel('SF Heats'));
+    }
     return;
   }
 
-  // 1) Validate all QF heats have a winner, runner‑up & RU time
-  const qfMatches = state.matches.filter(m => m.phase === 'QF');
-  for (const m of qfMatches) {
-    if (!m.winner || !m.runnerUp || !m.ruTimeRaw) {
-      return alert(`Fill Winner, Runner-Up & RU Time for ${m.id}`);
-    }
-  }
+  // ───────────────────────────────────────
+  // Phase = SF_DUEL → Winner only + one‑shot button
+  // ───────────────────────────────────────
+  if (phase === 'SF_DUEL') {
+    // 1) Render the single SF_DUEL heat
+    mset.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'bracket-heat';
+      div.innerHTML = `<h3>${m.id}</h3>`;
 
-  // 2) Slot QF winners into Semis
-  qfMatches.forEach(m => {
-    const targetSF = (m.heat === 1 || m.heat === 4) ? 'SF1' : 'SF2';
-    slotToMatch(targetSF, m.winner);
-  });
+      // participants line
+      const names = m.participants.map(pid => {
+        const d = state.drivers.find(x => x.id === pid);
+        const rig = m.rigAssignments?.[pid] || '–';
+        return d ? `${d.name} (Rig ${rig})` : `TBD (Rig ${rig})`;
+      }).join(' vs ');
+      const p = document.createElement('p');
+      p.className = 'match-participants';
+      p.textContent = names;
+      div.appendChild(p);
 
-  // 3) Collect & sort runner‑ups by their RU time
-  const sortedRUs = qfMatches
-    .map(m => ({ id: m.runnerUp, time: parseTimeString(m.ruTimeRaw) }))
-    .sort((a, b) => a.time - b.time)
-    .map(x => x.id);
-
-  // 4) Slot fastest/slower into the two Duels
-  slotToMatch('QF_DUEL1', sortedRUs[0]);
-  slotToMatch('QF_DUEL1', sortedRUs[sortedRUs.length - 1]);
-  slotToMatch('QF_DUEL2', sortedRUs[1]);
-  slotToMatch('QF_DUEL2', sortedRUs[2]);
-
-  // 5) NOW assign cockpits for each Duel match
-  state.matches
-    .filter(m => m.phase === 'QF_DUEL')
-    .forEach(match => {
-      match.rigAssignments = {};        // reset in case
-      const taken = new Set();
-
-      match.participants.forEach(pid => {
-        const driver = state.drivers.find(d => d.id === pid);
-        // compute next after lastRig
-        let idx = driver.lastRig
-          ? (cockpits.indexOf(driver.lastRig) + 1) % cockpits.length
-          : 0;
-        let rig = cockpits[idx];
-
-        // bump until free
-        while (taken.has(rig)) {
-          idx = (idx + 1) % cockpits.length;
-          rig = cockpits[idx];
-        }
-
-        // record it
-        match.rigAssignments[pid] = rig;
-        taken.add(rig);
-
-        // update driver for next phase
-        driver.lastRig = rig;
-        driver.sessionCount = (driver.sessionCount || 4) + 1;
+      // Winner select
+      const wL = document.createElement('label');
+      wL.textContent = 'Winner: ';
+      const wS = document.createElement('select');
+      wS.innerHTML = '<option value="">–</option>';
+      m.participants.forEach(pid => {
+        const d = state.drivers.find(x => x.id === pid);
+        if (d) wS.add(new Option(d.name, pid));
       });
+      wS.value = m.winner || '';
+      wL.appendChild(wS);
+      div.appendChild(wL);
+
+      wS.onchange = () => {
+        m.winner = +wS.value || null;
+        saveState();
+        renderBracketManager();
+      };
+
+      cont.appendChild(div);
     });
 
-  // 6) Save & re‑render Duels
-  saveState();
-  document.getElementById('bracketPhase').value = 'QF_DUEL';
-  renderBracketManager();
-  showMessage('✅ QF Duels evaluated');
+    // 2) Only once the Final has all 3 slots filled do we hide the button
+    const finalMatch = state.matches.find(x => x.phase === 'FINAL');
+    const duelDone = finalMatch && finalMatch.participants.length === 3;
+
+    if (!duelDone) {
+      const btn = document.createElement('button');
+      btn.classList.add('btn');
+      btn.textContent = '▶️ Evaluate SF Duel';
+      // only enabled once a winner is picked
+      btn.disabled = !mset[0].winner;
+      btn.onclick = () => {
+        evaluateSFDuel();       // slots duel winner → Final + rigs
+        showMessage('✅ SF Duel Evaluated');
+        document.getElementById('bracketPhase').value = 'FINAL';
+        renderBracketManager(); // re‑draw (button → ✅ label)
+      };
+      cont.appendChild(wrapButton(btn));
+    } else {
+      cont.appendChild(makeDoneLabel('SF Duel'));
+    }
+
+    return;
+  }
+
+
+  // ——————————————————————————————————————————————————————————
+  // Phase = FINAL → Winner + Runner‑Up + “Show Podium” button
+  // ——————————————————————————————————————————————————————————
+  if (phase === 'FINAL') {
+    mset.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'bracket-heat';
+      div.innerHTML = `<h3>${m.id}</h3>`;
+
+      // participants line
+      const names = m.participants.map(pid => {
+        const d = state.drivers.find(x => x.id === pid);
+        const rig = m.rigAssignments?.[pid] || '–';
+        return d ? `${d.name} (Rig ${rig})` : `TBD (Rig ${rig})`;
+      }).join(' vs ');
+      const p = document.createElement('p');
+      p.className = 'match-participants';
+      p.textContent = names;
+      div.appendChild(p);
+
+      // Winner select
+      const wL = document.createElement('label');
+      wL.textContent = 'Winner: ';
+      const wS = document.createElement('select');
+      wS.innerHTML = '<option value="">–</option>';
+      m.participants.forEach(pid => {
+        const d = state.drivers.find(x => x.id === pid);
+        if (d) wS.add(new Option(d.name, pid));
+      });
+      wS.value = m.winner || '';
+      wL.appendChild(wS);
+      div.appendChild(wL);
+
+      // Runner‑Up select
+      const rL = document.createElement('label');
+      rL.textContent = 'Runner‑Up: ';
+      const rS = document.createElement('select');
+      rS.innerHTML = '<option value="">–</option>';
+      m.participants.forEach(pid => {
+        const d = state.drivers.find(x => x.id === pid);
+        if (d) rS.add(new Option(d.name, pid));
+      });
+      rS.value = m.runnerUp || '';
+      rL.appendChild(rS);
+      div.appendChild(rL);
+
+      // enforce mutual exclusion in the render step:
+      if (m.runnerUp) {
+        Array.from(wS.options).forEach(opt => opt.disabled = (opt.value === String(m.runnerUp)));
+      }
+      if (m.winner) {
+        Array.from(rS.options).forEach(opt => opt.disabled = (opt.value === String(m.winner)));
+      }
+
+
+      // on‑change handlers now only save & re-render
+      wS.onchange = () => {
+        m.winner = +wS.value || null;
+        // disable the same choice in runner‑up
+        Array.from(rS.options).forEach(o => o.disabled = (o.value === wS.value));
+        saveState();
+        renderBracketManager();
+      };
+      rS.onchange = () => {
+        m.runnerUp = +rS.value || null;
+        // disable the same choice in winner
+        Array.from(wS.options).forEach(o => o.disabled = (o.value === rS.value));
+        saveState();
+        renderBracketManager();
+      };
+
+      cont.appendChild(div);
+    });
+
+    // Add the “Show Podium” button below
+    const finalMatch = state.matches.find(x => x.phase === 'FINAL');
+    const btn = document.createElement('button');
+    btn.classList.add('btn');
+    btn.textContent = '▶️ Show Podium';
+    // only enable once both slots are picked
+    btn.disabled = !(finalMatch.winner && finalMatch.runnerUp);
+    btn.onclick = () => {
+      const [a, b, c] = finalMatch.participants;
+      const first = finalMatch.winner;
+      const second = finalMatch.runnerUp;
+      const third = [a, b, c].find(x => x !== first && x !== second);
+      showPodiumCeremony(first, second, third);
+    };
+    cont.appendChild(wrapButton(btn));
+
+    return;
+  }
+
 }
+
+// ————————————————————
+// 2) Evaluation Routines
+// ————————————————————
+
+function evaluateQFDuels() {
+  state.matches
+    .filter(m => m.phase === 'QF')
+    .forEach(m => {
+      // winners → SF
+      const sfId = (m.heat === 1 || m.heat === 4) ? 'SF1' : 'SF2';
+      slotToMatch(sfId, m.winner);
+      assignRigsForMatch(state.matches.find(x => x.id === sfId));
+    });
+
+  // runner‑ups → QF_DUEL1 & QF_DUEL2 by RU time
+  const rus = state.matches
+    .filter(m => m.phase === 'QF')
+    .map(m => ({ id: m.runnerUp, time: parseTimeString(m.ruTimeRaw) }))
+    .sort((a, b) => a.time - b.time);
+  slotToMatch('QF_DUEL1', rus[0].id);
+  slotToMatch('QF_DUEL1', rus[rus.length - 1].id);
+  slotToMatch('QF_DUEL2', rus[1].id);
+  slotToMatch('QF_DUEL2', rus[2].id);
+  ['QF_DUEL1', 'QF_DUEL2']
+    .forEach(id => assignRigsForMatch(state.matches.find(x => x.id === id)));
+
+  saveState();
+}
+
+function evaluateQFDuel() {
+  state.matches
+    .filter(m => m.phase === 'QF_DUEL')
+    .forEach(m => {
+      const sfId = (m.id === 'QF_DUEL1' ? 'SF1' : 'SF2');
+      slotToMatch(sfId, m.winner);
+      assignRigsForMatch(state.matches.find(x => x.id === sfId));
+    });
+  saveState();
+}
+
+function evaluateSFHeats() {
+  state.matches
+    .filter(m => m.phase === 'SF')
+    .forEach(m => {
+      slotToMatch('FINAL', m.winner);
+      slotToMatch('SF_DUEL1', m.runnerUp);
+      assignRigsForMatch(state.matches.find(x => x.id === 'SF_DUEL1'));
+    });
+  saveState();
+}
+
+function evaluateSFDuel() {
+  const duel = state.matches.find(m => m.phase === 'SF_DUEL');
+  slotToMatch('FINAL', duel.winner);
+  assignRigsForMatch(state.matches.find(x => x.id === 'FINAL'));
+  saveState();
+}
+
+// ————————————————————
+// 3) Utility Helpers
+// ————————————————————
+
+/** Add .button-group wrapper for consistent styling */
+function wrapButton(btn) {
+  const wrap = document.createElement('div');
+  wrap.className = 'button-group';
+  wrap.appendChild(btn);
+  return wrap;
+}
+
+/** Show green “✅ [name] Already Evaluated” label */
+function makeDoneLabel(name) {
+  const lbl = document.createElement('div');
+  lbl.className = 'evaluated-label';
+  lbl.textContent = `✅ ${name} Already Evaluated`;
+  return lbl;
+}
+
+
+
+
+// ---------- Evaluate QF Duels ----------
+// function evaluateQFDuels() {
+
+//   // — bail out if QF‑Duels already have rigs assigned —
+//   const duel1 = state.matches.find(m => m.id === 'QF_DUEL1');
+//   if (
+//     duel1 &&
+//     duel1.rigAssignments &&
+//     Object.keys(duel1.rigAssignments).length > 0
+//   ) {
+//     showMessage('✅ QF Duels already evaluated - Rigs Locked.');
+//     return;
+//   }
+
+//   // 1) Validate all QF heats have a winner, runner‑up & RU time
+//   const qfMatches = state.matches.filter(m => m.phase === 'QF');
+//   for (const m of qfMatches) {
+//     if (!m.winner || !m.runnerUp || !m.ruTimeRaw) {
+//       return alert(`Fill Winner, Runner-Up & RU Time for ${m.id}`);
+//     }
+//   }
+
+//   // 2) Slot QF winners into Semis
+//   qfMatches.forEach(m => {
+//     const targetSF = (m.heat === 1 || m.heat === 4) ? 'SF1' : 'SF2';
+//     slotToMatch(targetSF, m.winner);
+//   });
+
+//   // 3) Collect & sort runner‑ups by their RU time
+//   const sortedRUs = qfMatches
+//     .map(m => ({ id: m.runnerUp, time: parseTimeString(m.ruTimeRaw) }))
+//     .sort((a, b) => a.time - b.time)
+//     .map(x => x.id);
+
+//   // 4) Slot fastest/slower into the two Duels
+//   slotToMatch('QF_DUEL1', sortedRUs[0]);
+//   slotToMatch('QF_DUEL1', sortedRUs[sortedRUs.length - 1]);
+//   slotToMatch('QF_DUEL2', sortedRUs[1]);
+//   slotToMatch('QF_DUEL2', sortedRUs[2]);
+
+//   // 5) NOW assign cockpits for each Duel match
+//   state.matches
+//     .filter(m => m.phase === 'QF_DUEL')
+//     .forEach(match => {
+//       match.rigAssignments = {};        // reset in case
+//       const taken = new Set();
+
+//       match.participants.forEach(pid => {
+//         const driver = state.drivers.find(d => d.id === pid);
+//         // compute next after lastRig
+//         let idx = driver.lastRig
+//           ? (cockpits.indexOf(driver.lastRig) + 1) % cockpits.length
+//           : 0;
+//         let rig = cockpits[idx];
+
+//         // bump until free
+//         while (taken.has(rig)) {
+//           idx = (idx + 1) % cockpits.length;
+//           rig = cockpits[idx];
+//         }
+
+//         // record it
+//         match.rigAssignments[pid] = rig;
+//         taken.add(rig);
+
+//         // update driver for next phase
+//         driver.lastRig = rig;
+//         driver.sessionCount = (driver.sessionCount || 4) + 1;
+//       });
+//     });
+
+//   // 6) Save & re‑render Duels
+//   saveState();
+//   document.getElementById('bracketPhase').value = 'QF_DUEL';
+//   renderBracketManager();
+//   showMessage('✅ QF Duels evaluated');
+// }
 
 // ---------- Slot Helper ----------
 function slotToMatch(matchId, pid) {
